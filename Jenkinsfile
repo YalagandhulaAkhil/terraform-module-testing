@@ -1,59 +1,73 @@
 pipeline {
   agent any
 
+  parameters {
+    booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply without asking?')
+    choice(name: 'action', choices: ['apply', 'destroy'], description: 'Terraform action to perform')
+  }
+
   environment {
-    AWS_REGION = 'us-east-1'
-    TF_VAR_aws_region = "${AWS_REGION}"
+    AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+    AWS_DEFAULT_REGION    = 'us-east-1'
   }
 
   stages {
-
-    stage('Checkout') {
+    stage('Checkout Repo') {
       steps {
-        git branch: 'main', url: 'https://github.com/your-org/terraform-project.git'
-      }
-    }
-
-    stage('Install Dependencies') {
-      steps {
-        sh 'terraform --version'
-        sh 'aws --version'
+        git url: 'https://your-git-repo-url.git', branch: 'main'
       }
     }
 
     stage('Terraform Init') {
       steps {
-        sh 'terraform init'
-      }
-    }
-
-    stage('Terraform Validate') {
-      steps {
-        sh 'terraform validate'
+        dir('main') {
+          bat 'terraform init'
+        }
       }
     }
 
     stage('Terraform Plan') {
+      when {
+        expression { params.action == 'apply' }
+      }
       steps {
-        sh 'terraform plan -var-file=terraform.tfvars -out=tfplan.out'
+        dir('main') {
+          bat 'terraform plan -out=tfplan -var-file=terraform.tfvars'
+          bat 'terraform show -no-color tfplan > tfplan.txt'
+        }
       }
     }
 
-    stage('Terraform Apply') {
+    stage('Terraform Apply / Destroy') {
       steps {
-        input message: "Approve Terraform Apply?"
-        sh 'terraform apply tfplan.out'
+        script {
+          dir('main') {
+            if (params.action == 'apply') {
+              if (!params.autoApprove) {
+                def planText = readFile('tfplan.txt')
+                input message: 'Review the Terraform plan before apply?',
+                  parameters: [
+                    text(name: 'Plan Preview', description: 'Terraform Plan Output', defaultValue: planText)
+                  ]
+              }
+              bat 'terraform apply -input=false tfplan'
+            } else if (params.action == 'destroy') {
+              bat 'terraform destroy -auto-approve -var-file=terraform.tfvars'
+            } else {
+              error "Invalid action selected. Please choose 'apply' or 'destroy'."
+            }
+          }
+        }
       }
     }
-
   }
 
   post {
     always {
-      archiveArtifacts artifacts: '**/*.tf', allowEmptyArchive: true
-    }
-    failure {
-      echo 'Terraform apply failed.'
+      dir('main') {
+        archiveArtifacts artifacts: 'tfplan.txt', onlyIfSuccessful: true
+      }
     }
   }
 }

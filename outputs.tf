@@ -1,11 +1,11 @@
-output "s3_bucket_arn" {
-  value = module.s3.bucket_arn
+output "s3_bucket_name" {
+  value = module.s3.s3_bucket_name
 }
 
-output "dynamodb_table_name" {
-  value = module.dynamodb.table_name
+output "dynamodb_table" {
+  value = module.dynamodb.dynamodb_table_name
 }
 
-output "lambda_function_name" {
-  value = module.lambda.lambda_name
+output "lambda_function" {
+  value = module.lambda.lambda_function_name
 }

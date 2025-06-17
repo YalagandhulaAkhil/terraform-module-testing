@@ -1,5 +1,6 @@
-def lambda_handler(event, context):
-    return {
-        'statusCode': 200,
-        'body': 'Hello from Lambda!'
-    }
+exports.handler = async (event) => {
+  return {
+    statusCode: 200,
+    body: JSON.stringify('Hello from Lambda!'),
+  };
+};

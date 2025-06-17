@@ -1,12 +1,7 @@
-aws_region           = "us-east-1"
-
-s3_bucket_name       = "my-modularized-s3-bucket"
-
-dynamodb_table_name  = "MyAppData"
-dynamodb_hash_key    = "id"
-dynamodb_hash_key_type = "S"
-
-lambda_function_name = "MyLambdaFunction"
-lambda_handler        = "lambda_function.lambda_handler"
-lambda_runtime        = "python3.9"
-lambda_zip_path       = "modules/lambda/lambda_function.zip"
+bucket_name           = "tf-demo-bucket-2025"
+dynamodb_table_name   = "tf-lock-table"
+dynamodb_hash_key     = "LockID"
+lambda_function_name  = "myLambdaFunction"
+lambda_handler        = "index.handler"
+lambda_runtime        = "nodejs18.x"
+lambda_zip            = "lambda.zip"
