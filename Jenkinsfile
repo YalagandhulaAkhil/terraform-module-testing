@@ -15,7 +15,7 @@ pipeline {
   stages {
     stage('Checkout Repo') {
       steps {
-        git url: 'https://your-git-repo-url.git', branch: 'main'
+        echo "Repository already checked out via Declarative SCM"
       }
     }
 
