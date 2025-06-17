@@ -19,6 +19,18 @@ pipeline {
       }
     }
 
+    stage('Validate tfvars File') {
+      steps {
+        dir('main') {
+          script {
+            if (!fileExists('terraform.tfvars')) {
+              error "Missing terraform.tfvars in 'main/' folder. Please commit it before running the pipeline."
+            }
+          }
+        }
+      }
+    }
+
     stage('Terraform Init') {
       steps {
         dir('main') {
@@ -46,7 +58,7 @@ pipeline {
             if (params.action == 'apply') {
               if (!params.autoApprove) {
                 def planText = readFile('tfplan.txt')
-                input message: 'Review the Terraform plan before apply?',
+                input message: 'Review the Terraform plan before applying:',
                   parameters: [
                     text(name: 'Plan Preview', description: 'Terraform Plan Output', defaultValue: planText)
                   ]
@@ -55,7 +67,7 @@ pipeline {
             } else if (params.action == 'destroy') {
               bat 'terraform destroy -auto-approve -var-file=terraform.tfvars'
             } else {
-              error "Invalid action selected. Please choose 'apply' or 'destroy'."
+              error "Invalid action selected. Please choose either 'apply' or 'destroy'."
             }
           }
         }
