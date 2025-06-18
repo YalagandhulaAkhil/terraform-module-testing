@@ -1,3 +1,3 @@
-output "dynamodb_table_name" {
+output "dynamodb_table" {
   value = aws_dynamodb_table.this.name
 }

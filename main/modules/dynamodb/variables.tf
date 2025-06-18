@@ -1,9 +1,4 @@
 variable "table_name" {
+  description = "The name of the DynamoDB table"
   type        = string
-  description = "DynamoDB table name"
-}
-
-variable "hash_key" {
-  type        = string
-  description = "Primary key"
 }
