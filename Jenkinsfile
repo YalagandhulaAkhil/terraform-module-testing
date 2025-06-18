@@ -1,14 +1,35 @@
 pipeline {
   agent any
 
+  parameters {
+    choice(
+      name: 'ACTION',
+      choices: ['apply', 'destroy'],
+      description: 'Choose whether to apply or destroy the infrastructure'
+    )
+  }
+
   environment {
-    AWS_REGION = 'us-east-1'
+    AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
+    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
   }
 
   stages {
     stage('Checkout Repo') {
       steps {
-        git credentialsId: 'for-jenkins', url: 'https://github.com/YalagandhulaAkhil/terraform-module-testing.git', branch: 'main'
+        checkout scm
+      }
+    }
+
+    stage('Validate tfvars File') {
+      steps {
+        dir('main') {
+          script {
+            if (!fileExists('terraform.tfvars')) {
+              error "terraform.tfvars file not found!"
+            }
+          }
+        }
       }
     }
 
@@ -33,31 +54,19 @@ pipeline {
             string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
           ]) {
             bat "terraform plan -out=tfplan -var-file=terraform.tfvars"
+            bat "terraform show -no-color tfplan > tfplan.txt"
           }
         }
       }
     }
 
-    stage('Terraform Apply') {
+    stage('Terraform Apply / Destroy') {
       steps {
         dir('main') {
-          withCredentials([
-            string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-            string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
-          ]) {
-            bat "terraform apply -auto-approve tfplan"
-          }
-        }
-      }
-    }
-  }
-
-  post {
-    always {
-      echo 'Terraform pipeline completed.'
-    }
-    failure {
-      echo 'Terraform pipeline failed!'
-    }
-  }
-}
+          script {
+            if (params.ACTION == 'apply') {
+              bat "terraform apply -auto-approve tfplan"
+            } else if (params.ACTION == 'destroy') {
+              bat "terraform destroy -auto-approve -var-file=terraform.tfvars"
+            } else {
+              error "Invalid
