@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    TF_IN_AUTOMATION = 'true'
+    TF_VAR_region = 'us-east-1'
   }
 
   stages {
@@ -25,13 +25,14 @@ pipeline {
     }
 
     stage('Terraform Init') {
-      environment {
-        AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
-      }
       steps {
         dir('main') {
-          bat 'terraform init -reconfigure'
+          withCredentials([
+            string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+          ]) {
+            bat 'terraform init -reconfigure'
+          }
         }
       }
     }
@@ -39,16 +40,29 @@ pipeline {
     stage('Terraform Plan') {
       steps {
         dir('main') {
-          bat 'terraform plan -var-file="terraform.tfvars"'
+          withCredentials([
+            string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+          ]) {
+            bat 'terraform plan -out=tfplan -var-file=terraform.tfvars'
+            bat 'terraform show -no-color tfplan > tfplan.txt'
+          }
         }
       }
     }
 
     stage('Terraform Apply / Destroy') {
+      when {
+        expression { return currentBuild.currentResult == 'SUCCESS' }
+      }
       steps {
-        input message: "Do you want to apply the changes?"
         dir('main') {
-          bat 'terraform apply -auto-approve -var-file="terraform.tfvars"'
+          withCredentials([
+            string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+          ]) {
+            bat 'terraform apply -input=false tfplan'
+          }
         }
       }
     }
@@ -57,14 +71,11 @@ pipeline {
   post {
     always {
       dir('main') {
-        archiveArtifacts artifacts: '**/*.tfplan', allowEmptyArchive: true
+        archiveArtifacts artifacts: 'tfplan.txt', onlyIfSuccessful: true
       }
     }
     failure {
       echo 'Terraform pipeline failed!'
-    }
-    success {
-      echo 'Terraform pipeline completed successfully.'
     }
   }
 }
