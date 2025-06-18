@@ -65,7 +65,7 @@ pipeline {
             } else if (params.ACTION == 'destroy') {
               bat "terraform destroy -auto-approve -var-file=terraform.tfvars"
             } else {
-              error "Invalid ACTION selected."
+              error("Invalid ACTION selected.")
             }
           }
         }
@@ -75,8 +75,12 @@ pipeline {
 
   post {
     always {
-      dir('main') {
-        archiveArtifacts artifacts: '**/*.tf', allowEmptyArchive: true
+      script {
+        node {
+          dir('main') {
+            archiveArtifacts artifacts: '**/*.tf', allowEmptyArchive: true
+          }
+        }
       }
     }
     failure {
