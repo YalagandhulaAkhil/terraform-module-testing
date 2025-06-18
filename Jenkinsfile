@@ -2,16 +2,13 @@ pipeline {
   agent any
 
   parameters {
-    choice(
-      name: 'ACTION',
-      choices: ['apply', 'destroy'],
-      description: 'Choose whether to apply or destroy the infrastructure'
-    )
+    choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Select Terraform action to perform')
   }
 
   environment {
-    AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
-    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
+    AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+    AWS_DEFAULT_REGION    = 'us-east-1'
   }
 
   stages {
@@ -26,7 +23,7 @@ pipeline {
         dir('main') {
           script {
             if (!fileExists('terraform.tfvars')) {
-              error "terraform.tfvars file not found!"
+              error "terraform.tfvars file is missing in the main directory!"
             }
           }
         }
@@ -37,8 +34,8 @@ pipeline {
       steps {
         dir('main') {
           withCredentials([
-            string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-            string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+            string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
           ]) {
             bat "terraform init -reconfigure"
           }
@@ -50,11 +47,10 @@ pipeline {
       steps {
         dir('main') {
           withCredentials([
-            string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
-            string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+            string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
           ]) {
             bat "terraform plan -out=tfplan -var-file=terraform.tfvars"
-            bat "terraform show -no-color tfplan > tfplan.txt"
           }
         }
       }
@@ -69,4 +65,22 @@ pipeline {
             } else if (params.ACTION == 'destroy') {
               bat "terraform destroy -auto-approve -var-file=terraform.tfvars"
             } else {
-              error "Invalid
+              error "Invalid ACTION selected."
+            }
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      dir('main') {
+        archiveArtifacts artifacts: '**/*.tf', allowEmptyArchive: true
+      }
+    }
+    failure {
+      echo 'Terraform pipeline failed!'
+    }
+  }
+}
